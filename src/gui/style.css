@@ -78,6 +78,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overflow-anchor: none;
   padding: 10px 12px;
   font-size: var(--retc-size, 13.5px);
   line-height: var(--retc-line, 1.65);
@@ -86,6 +87,11 @@
   border-left: 3px solid var(--retc-border, #666);
   border-radius: 4px;
   font-family: var(--retc-font, inherit);
+}
+
+.retc-plain {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .retc-body * {

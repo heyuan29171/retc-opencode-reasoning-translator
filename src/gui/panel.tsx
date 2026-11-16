@@ -26,6 +26,7 @@ export function PanelView(props: { readonly session: MountedSession }) {
   const [options, setOptions] = createSignal<ModelOption[]>([])
   let body: HTMLDivElement | undefined
   let stick = true
+  let programmaticUntil = 0
   let timer: ReturnType<typeof setTimeout> | undefined
   let pending: Update | undefined
 
@@ -44,6 +45,7 @@ export function PanelView(props: { readonly session: MountedSession }) {
 
   const pin = () => {
     if (!stick) return
+    programmaticUntil = Date.now() + 150
     requestAnimationFrame(() => {
       if (body) body.scrollTop = body.scrollHeight
     })
@@ -104,6 +106,7 @@ export function PanelView(props: { readonly session: MountedSession }) {
     void models()
     const onScroll = () => {
       if (!body) return
+      if (Date.now() < programmaticUntil) return
       stick = body.scrollTop + body.clientHeight >= body.scrollHeight - 30
     }
     body?.addEventListener("scroll", onScroll)
@@ -166,9 +169,11 @@ export function PanelView(props: { readonly session: MountedSession }) {
       </div>
       <div class="retc-body" classList={{ empty: !full(), error: status() === "error" }} ref={body}>
         <Show when={full()} fallback={status() === "live" ? "翻译中…" : "等待思考…"}>
-          <ui.Markdown text={stable()} />
-          <Show when={preview()}>
-            <ui.Markdown text={preview()} />
+          <Show
+            when={status() === "done"}
+            fallback={<div class="retc-plain">{full()}</div>}
+          >
+            <ui.Markdown text={full()} />
           </Show>
         </Show>
       </div>
