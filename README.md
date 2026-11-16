@@ -34,10 +34,9 @@ npm run build
 
 ## 使用
 
-- 默认翻译模型：`zhipuai/glm-4.6v`（请求时关闭 thinking，实测首字约 0.5–1 秒）
-- 面板右上角的下拉框可以换成任意已配置模型，选择会保存在插件自己的 storage 里
-- 你有 `glm-4.5-flash` 的话也能在列表里选，但实测它排队很慢（几十秒），不建议作为默认
-- zhipuai 走直连：读 `~/.local/share/opencode/auth.json` 里的 key，或环境变量 `ZHIPUAI_API_KEY`；其他 provider 走 OpenCode 的 `generate`
+- 默认翻译模型：`zhipuai/glm-4.6v`；请求失败会自动切到 `zhipuai/glm-4.5-air`
+- 面板右上角的下拉框可以在这两个模型之间切换，选择会保存在插件自己的 storage 里
+- 两者都走直连（读取 `auth.json` 里的 zhipuai key，或环境变量 `ZHIPUAI_API_KEY`），并关闭 thinking；其他 provider 走 OpenCode 的 `generate`
 
 ## 工作原理
 
