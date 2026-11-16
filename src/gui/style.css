@@ -220,6 +220,35 @@
   gap: 8px;
 }
 
+.retc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.retc-field-label {
+  color: var(--retc-fg, #141414);
+  opacity: 0.75;
+}
+
+.retc-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--retc-bg, #9a9a9a) 82%, var(--retc-fg, #141414));
+  color: var(--retc-fg, #141414);
+  border: 1px solid var(--retc-border, #666);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.retc-input:focus {
+  border-color: var(--retc-fg, #141414);
+}
+
 .retc-gear {
   flex: none;
   background: transparent;

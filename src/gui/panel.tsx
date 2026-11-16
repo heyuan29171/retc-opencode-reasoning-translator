@@ -16,6 +16,19 @@ type Update = {
   model?: string
 }
 
+function Field(props: { label: string; value: string; onInput: (value: string) => void }) {
+  return (
+    <label class="retc-field">
+      <span class="retc-field-label">{props.label}</span>
+      <input
+        class="retc-input"
+        value={props.value}
+        onInput={(event) => props.onInput(event.currentTarget.value)}
+      />
+    </label>
+  )
+}
+
 export function PanelView(props: { readonly session: MountedSession }) {
   const ctx = usePlugin<typeof definition>()
   const ui = ctx.ui
@@ -204,16 +217,12 @@ export function PanelView(props: { readonly session: MountedSession }) {
             <ui.Button onClick={() => preset("light")}>浅灰</ui.Button>
             <ui.Button onClick={() => preset("dark")}>深灰</ui.Button>
           </div>
-          <ui.TextInput label="背景色" value={skin().bg} onInput={(value) => field("bg", value)} />
-          <ui.TextInput label="文字色" value={skin().fg} onInput={(value) => field("fg", value)} />
-          <ui.TextInput label="边框色" value={skin().border} onInput={(value) => field("border", value)} />
-          <ui.TextInput
-            label="字体（留空继承）"
-            value={skin().font}
-            onInput={(value) => field("font", value)}
-          />
-          <ui.TextInput label="字号 px" value={String(skin().size)} onInput={(value) => number("size", value)} />
-          <ui.TextInput label="行高" value={String(skin().line)} onInput={(value) => number("line", value)} />
+          <Field label="背景色" value={skin().bg} onInput={(value) => field("bg", value)} />
+          <Field label="文字色" value={skin().fg} onInput={(value) => field("fg", value)} />
+          <Field label="边框色" value={skin().border} onInput={(value) => field("border", value)} />
+          <Field label="字体（留空继承）" value={skin().font} onInput={(value) => field("font", value)} />
+          <Field label="字号 px" value={String(skin().size)} onInput={(value) => number("size", value)} />
+          <Field label="行高" value={String(skin().line)} onInput={(value) => number("line", value)} />
         </div>
       </Show>
       <div class="retc-body" classList={{ empty: !full(), error: status() === "error" }} ref={body}>
