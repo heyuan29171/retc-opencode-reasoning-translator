@@ -208,11 +208,30 @@
 .retc-settings {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-width: 560px;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--retc-border, #666);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--retc-bg, #9a9a9a) 88%, var(--retc-fg, #141414));
 }
 
 .retc-settings-row {
   display: flex;
   gap: 8px;
+}
+
+.retc-gear {
+  flex: none;
+  background: transparent;
+  color: var(--retc-fg, #141414);
+  border: 1px solid var(--retc-border, #666);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.retc-gear:hover {
+  border-color: var(--retc-fg, #141414);
 }

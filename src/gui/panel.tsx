@@ -148,6 +148,34 @@ export function PanelView(props: { readonly session: MountedSession }) {
     } catch {}
   }
 
+  const [showSettings, setShowSettings] = createSignal(false)
+  const store = () => ctx.stores.style
+  const field = (key: "bg" | "fg" | "border" | "font", value: string) => {
+    store().update((draft) => {
+      draft[key] = value
+    })
+  }
+  const number = (key: "size" | "line", value: string) => {
+    const next = Number(value)
+    if (!Number.isFinite(next) || next <= 0) return
+    store().update((draft) => {
+      draft[key] = next
+    })
+  }
+  const preset = (kind: "light" | "dark") => {
+    store().update((draft) => {
+      if (kind === "light") {
+        draft.bg = "#9a9a9a"
+        draft.fg = "#141414"
+        draft.border = "#666666"
+        return
+      }
+      draft.bg = "#2b2b2b"
+      draft.fg = "#e6e6e6"
+      draft.border = "#555555"
+    })
+  }
+
   return (
     <div class="retc-panel" style={variables() as any}>
       <div class="retc-head">
@@ -166,7 +194,28 @@ export function PanelView(props: { readonly session: MountedSession }) {
             <option value={item.value}>{item.label}</option>
           ))}
         </select>
+        <button class="retc-gear" title="样式设置" onClick={() => setShowSettings(!showSettings())}>
+          ⚙
+        </button>
       </div>
+      <Show when={showSettings()}>
+        <div class="retc-settings">
+          <div class="retc-settings-row">
+            <ui.Button onClick={() => preset("light")}>浅灰</ui.Button>
+            <ui.Button onClick={() => preset("dark")}>深灰</ui.Button>
+          </div>
+          <ui.TextInput label="背景色" value={skin().bg} onInput={(value) => field("bg", value)} />
+          <ui.TextInput label="文字色" value={skin().fg} onInput={(value) => field("fg", value)} />
+          <ui.TextInput label="边框色" value={skin().border} onInput={(value) => field("border", value)} />
+          <ui.TextInput
+            label="字体（留空继承）"
+            value={skin().font}
+            onInput={(value) => field("font", value)}
+          />
+          <ui.TextInput label="字号 px" value={String(skin().size)} onInput={(value) => number("size", value)} />
+          <ui.TextInput label="行高" value={String(skin().line)} onInput={(value) => number("line", value)} />
+        </div>
+      </Show>
       <div class="retc-body" classList={{ empty: !full(), error: status() === "error" }} ref={body}>
         <Show when={full()} fallback={status() === "live" ? "翻译中…" : "等待思考…"}>
           <Show
