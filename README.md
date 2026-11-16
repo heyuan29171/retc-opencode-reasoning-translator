@@ -2,7 +2,7 @@
 
 OpenCode **Desktop** 的 GUI 插件：把模型的**英文思考过程（reasoning）**实时翻译成简体中文，显示在会话右侧的独立面板里。
 
-- 侧栏面板「思考译文」，淡金色排版，和正文明显分开
+- 侧栏面板「思考译文」，灰色背景 + 黑色文字，和正文明显分开
 - 边思考边翻译：服务端订阅 `session.reasoning.*` 事件，按句切块翻译后推给面板
 - 面板顶部可切换翻译模型（列出所有已配置模型）
 - **完全不写会话消息**：零上下文占用，压缩/摘要也不会有残留
@@ -16,8 +16,8 @@ OpenCode **Desktop** 的 GUI 插件：把模型的**英文思考过程（reasoni
 ## 安装
 
 ```powershell
-git clone https://github.com/heyuan29171/retc-opencode-reasoning-translator.git D:\code\program\retc-opencode-reasoning-translator
-cd D:\code\program\retc-opencode-reasoning-translator
+git clone https://github.com/heyuan29171/retc-opencode-reasoning-translator.git
+cd retc-opencode-reasoning-translator
 npm install
 npm run build
 ```
@@ -26,7 +26,7 @@ npm run build
 
 ```json
 {
-  "plugins": ["D:/code/program/retc-opencode-reasoning-translator"]
+  "plugins": ["<absolute-path-to-retc>"]
 }
 ```
 
@@ -48,7 +48,7 @@ server 部分（@opencode/plugin）
     → RPC 事件 reasoning 推给 GUI
 
 GUI 部分（./gui-experimental，Vite 打包）
-  Panel（侧栏）+ Style（淡金 CSS）
+  Panel（侧栏）+ Style（灰色主题 CSS）
     → 订阅 RPC 事件，按 session 过滤
     → 流式渲染，自动滚动
 ```
