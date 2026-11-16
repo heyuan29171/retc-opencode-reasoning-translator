@@ -87,6 +87,7 @@ async function zhipuTranslate(model: string, text: string, onDelta: (text: strin
   const decoder = new TextDecoder()
   let buffer = ""
   let out = ""
+  let last = 0
   while (true) {
     const { value, done } = await reader.read()
     if (done) break
@@ -103,7 +104,11 @@ async function zhipuTranslate(model: string, text: string, onDelta: (text: strin
             const delta = json?.choices?.[0]?.delta?.content
             if (typeof delta === "string" && delta) {
               out += delta
-              onDelta(clean(out))
+              const now = Date.now()
+              if (now - last >= 120) {
+                last = now
+                onDelta(clean(out))
+              }
             }
           } catch {}
         }

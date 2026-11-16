@@ -7,6 +7,12 @@ type ModelOption = {
   label: string
 }
 
+type Update = {
+  text: string
+  status: string
+  model?: string
+}
+
 export function PanelView(props: { readonly session: MountedSession }) {
   const ctx = usePlugin()
   const ui = ctx.ui
@@ -15,24 +21,48 @@ export function PanelView(props: { readonly session: MountedSession }) {
   const [model, setModel] = createSignal("")
   const [options, setOptions] = createSignal<ModelOption[]>([])
   let body: HTMLDivElement | undefined
+  let stick = true
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let pending: Update | undefined
 
   const rpc = () => ctx.client.rpc(Retc as any) as any
 
-  const scroll = () => {
-    if (body && body.scrollTop + body.clientHeight >= body.scrollHeight - 40) {
-      body.scrollTop = body.scrollHeight
+  const pin = () => {
+    if (!stick) return
+    requestAnimationFrame(() => {
+      if (body) body.scrollTop = body.scrollHeight
+    })
+  }
+
+  const apply = (update: Update) => {
+    pending = undefined
+    setText(update.text)
+    setStatus(update.status)
+    if (update.model) setModel(update.model)
+    pin()
+  }
+
+  const queue = (update: Update) => {
+    pending = update
+    if (update.status !== "live") {
+      if (timer) clearTimeout(timer)
+      timer = undefined
+      apply(update)
+      return
     }
+    if (timer) return
+    timer = setTimeout(() => {
+      timer = undefined
+      if (pending) apply(pending)
+    }, 160)
   }
 
   const load = async (sessionID: string) => {
     try {
       const snapshot = await rpc().snapshot({ sessionID })
-      setText(snapshot.text ?? "")
-      setStatus(snapshot.status ?? "idle")
-      setModel(snapshot.model ?? "")
+      apply({ text: snapshot.text ?? "", status: snapshot.status ?? "idle", model: snapshot.model ?? "" })
     } catch {
-      setText("")
-      setStatus("idle")
+      apply({ text: "", status: "idle" })
     }
   }
 
@@ -51,21 +81,28 @@ export function PanelView(props: { readonly session: MountedSession }) {
 
   onMount(() => {
     void models()
+    const onScroll = () => {
+      if (!body) return
+      stick = body.scrollTop + body.clientHeight >= body.scrollHeight - 30
+    }
+    body?.addEventListener("scroll", onScroll)
     const off = rpc().events.on("reasoning", (event: any) => {
       const data = event.data ?? event
       if (data.sessionID !== props.session.id) return
-      setText(data.text ?? "")
-      setStatus(data.status ?? "live")
-      if (data.model) setModel(data.model)
-      scroll()
+      queue({ text: data.text ?? "", status: data.status ?? "live", model: data.model })
     })
-    onCleanup(off)
+    onCleanup(() => {
+      off()
+      body?.removeEventListener("scroll", onScroll)
+      if (timer) clearTimeout(timer)
+    })
   })
 
   createEffect(
     on(
       () => props.session.id,
       (sessionID) => {
+        stick = true
         setText("")
         setStatus("idle")
         void load(sessionID)
