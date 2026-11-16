@@ -55,6 +55,14 @@ function zhipuKey() {
   }
 }
 
+function clean(text: string) {
+  let out = text
+  out = out.replace(/^(?:好的|当然|没问题|以下是|这是|我来)[^\n]{0,60}?[：:]\s*/u, "")
+  out = out.replace(/^(?:好的|当然|没问题)[^\n]{0,60}?\n+/u, "")
+  out = out.replace(/^-{3,}\s*\n?/, "")
+  return out.trimStart()
+}
+
 async function zhipuTranslate(model: string, text: string, onDelta: (text: string) => void) {
   const key = zhipuKey()
   if (!key) throw new Error("缺少 zhipuai API key")
@@ -63,7 +71,7 @@ async function zhipuTranslate(model: string, text: string, onDelta: (text: strin
     headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
     body: JSON.stringify({
       model,
-      temperature: 0.1,
+      temperature: 0,
       stream: true,
       thinking: { type: "disabled" },
       messages: [
@@ -95,7 +103,7 @@ async function zhipuTranslate(model: string, text: string, onDelta: (text: strin
             const delta = json?.choices?.[0]?.delta?.content
             if (typeof delta === "string" && delta) {
               out += delta
-              onDelta(out)
+              onDelta(clean(out))
             }
           } catch {}
         }
@@ -103,8 +111,7 @@ async function zhipuTranslate(model: string, text: string, onDelta: (text: strin
       index = buffer.indexOf("\n")
     }
   }
-  if (!out.trim()) throw new Error("zhipuai 返回空内容")
-  return out.trim()
+  return clean(out)
 }
 
 export default Plugin.define({
@@ -175,7 +182,7 @@ export default Plugin.define({
         }
       }
       const result = await ctx.experimental.generate.text({ model: target, prompt: prompt(text) })
-      const out = result.text.trim()
+      const out = clean(result.text)
       onDelta(out)
       return out
     }
@@ -203,6 +210,11 @@ export default Plugin.define({
         return
       }
       const chunk = rest.slice(0, size)
+      if (!/[A-Za-z\u4e00-\u9fff]{2}/.test(chunk)) {
+        state.done += size
+        void pump(state)
+        return
+      }
       state.busy = true
       state.preview = ""
       emit(state, "live")
@@ -212,7 +224,7 @@ export default Plugin.define({
           emit(state, "live")
         })
         state.done += size
-        state.zh = state.zh ? state.zh + "\n" + zh : zh
+        if (zh.trim()) state.zh = state.zh ? state.zh + "\n" + zh : zh
         state.preview = ""
         state.busy = false
         emit(state, state.complete && state.done >= state.text.length ? "done" : "live")

@@ -9,6 +9,7 @@ type ModelOption = {
 
 export function PanelView(props: { readonly session: MountedSession }) {
   const ctx = usePlugin()
+  const ui = ctx.ui
   const [text, setText] = createSignal("")
   const [status, setStatus] = createSignal("idle")
   const [model, setModel] = createSignal("")
@@ -92,7 +93,7 @@ export function PanelView(props: { readonly session: MountedSession }) {
       </div>
       <div class="retc-body" classList={{ empty: !text(), error: status() === "error" }} ref={body}>
         <Show when={text()} fallback={status() === "live" ? "翻译中…" : "等待思考…"}>
-          {text()}
+          <ui.Markdown text={text()} />
         </Show>
       </div>
     </div>
