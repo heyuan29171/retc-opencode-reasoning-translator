@@ -1,8 +1,18 @@
+import fs from "node:fs"
+import os from "node:os"
+import path from "node:path"
 import { Plugin } from "@opencode/plugin"
 import { Retc } from "./rpc.ts"
 
-const DEFAULT_MODEL = "opencode-go/deepseek-v4.1-flash"
-const HEAD = "【思考译文】\n"
+const DEFAULT_MODEL = "zhipuai/glm-4.6v"
+const AUTH = path.join(os.homedir(), ".local", "share", "opencode", "auth.json")
+const ZHIPU = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+const SYSTEM = [
+  "You translate an AI coding assistant's private reasoning into Simplified Chinese.",
+  "Output only the Chinese translation, with no preamble or notes.",
+  "Keep code, file paths, commands, identifiers, URLs, numbers and Markdown syntax unchanged.",
+  "If the input is already Chinese, return it unchanged.",
+].join("\n")
 
 type State = {
   sessionID: string
@@ -10,6 +20,7 @@ type State = {
   text: string
   done: number
   zh: string
+  preview: string
   busy: boolean
   complete: boolean
   last: number
@@ -30,6 +41,70 @@ function boundary(text: string) {
     index = match ? match[0].length : -1
   }
   return index >= 120 ? Math.min(index + 1, 1600) : 0
+}
+
+function zhipuKey() {
+  const env = process.env.ZHIPUAI_API_KEY
+  if (env && env.trim()) return env.trim()
+  try {
+    const json = JSON.parse(fs.readFileSync(AUTH, "utf8"))
+    const key = json?.zhipuai?.key
+    return typeof key === "string" ? key.trim() : ""
+  } catch {
+    return ""
+  }
+}
+
+async function zhipuTranslate(model: string, text: string, onDelta: (text: string) => void) {
+  const key = zhipuKey()
+  if (!key) throw new Error("缺少 zhipuai API key")
+  const res = await fetch(ZHIPU, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model,
+      temperature: 0.1,
+      stream: true,
+      thinking: { type: "disabled" },
+      messages: [
+        { role: "system", content: SYSTEM },
+        { role: "user", content: text },
+      ],
+    }),
+    signal: AbortSignal.timeout(45000),
+  })
+  if (!res.ok) throw new Error(`zhipuai HTTP ${res.status}`)
+  if (!res.body) throw new Error("zhipuai 无响应体")
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+  let out = ""
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let index = buffer.indexOf("\n")
+    while (index >= 0) {
+      const line = buffer.slice(0, index).trim()
+      buffer = buffer.slice(index + 1)
+      if (line.startsWith("data:")) {
+        const payload = line.slice(5).trim()
+        if (payload && payload !== "[DONE]") {
+          try {
+            const json = JSON.parse(payload)
+            const delta = json?.choices?.[0]?.delta?.content
+            if (typeof delta === "string" && delta) {
+              out += delta
+              onDelta(out)
+            }
+          } catch {}
+        }
+      }
+      index = buffer.indexOf("\n")
+    }
+  }
+  if (!out.trim()) throw new Error("zhipuai 返回空内容")
+  return out.trim()
 }
 
 export default Plugin.define({
@@ -74,32 +149,28 @@ export default Plugin.define({
     })
 
     const emit = (state: State, status: string) => {
-      latest.set(state.sessionID, { text: HEAD + state.zh, status, model: settings.model })
+      const view = state.zh + (state.preview ? (state.zh ? "\n" : "") + state.preview : "")
+      latest.set(state.sessionID, { text: view, status, model: settings.model })
       void reg.events
         .emit("reasoning", {
           sessionID: state.sessionID,
           partID: state.partID,
-          text: state.zh,
+          text: view,
           status,
           model: settings.model,
         })
         .catch(() => {})
     }
 
-    const ask = async (text: string) => {
-      const result = await ctx.experimental.generate.text({
-        model: ref(),
-        prompt: [
-          "You translate an AI coding assistant's private reasoning into Simplified Chinese.",
-          "Output only the Chinese translation, with no preamble or notes.",
-          "Keep code, file paths, commands, identifiers, URLs, numbers and Markdown syntax unchanged.",
-          "If the input is already Chinese, return it unchanged.",
-          "",
-          "Text:",
-          text,
-        ].join("\n"),
-      })
-      return result.text.trim()
+    const prompt = (text: string) => [SYSTEM, "", "Text:", text].join("\n")
+
+    const ask = async (text: string, onDelta: (text: string) => void) => {
+      const target = ref()
+      if (target.providerID === "zhipuai") return zhipuTranslate(target.id, text, onDelta)
+      const result = await ctx.experimental.generate.text({ model: target, prompt: prompt(text) })
+      const out = result.text.trim()
+      onDelta(out)
+      return out
     }
 
     const schedule = (state: State) => {
@@ -126,15 +197,21 @@ export default Plugin.define({
       }
       const chunk = rest.slice(0, size)
       state.busy = true
+      state.preview = ""
       emit(state, "live")
       try {
-        const zh = await ask(chunk)
+        const zh = await ask(chunk, (partial) => {
+          state.preview = partial
+          emit(state, "live")
+        })
         state.done += size
         state.zh = state.zh ? state.zh + "\n" + zh : zh
+        state.preview = ""
         state.busy = false
         emit(state, state.complete && state.done >= state.text.length ? "done" : "live")
         if (state.done < state.text.length || !state.complete) void pump(state)
       } catch {
+        state.preview = ""
         state.busy = false
         emit(state, "error")
       }
@@ -159,6 +236,7 @@ export default Plugin.define({
               text: "",
               done: 0,
               zh: "",
+              preview: "",
               busy: false,
               complete: false,
               last: Date.now(),
