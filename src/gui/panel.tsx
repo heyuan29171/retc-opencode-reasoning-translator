@@ -1,6 +1,7 @@
 import { createEffect, createSignal, on, onCleanup, onMount, Show } from "solid-js"
 import { usePlugin, type MountedSession } from "@opencode/plugin/gui"
 import { Retc } from "../rpc.ts"
+import type { definition } from "./definition.ts"
 
 type ModelOption = {
   value: string
@@ -9,14 +10,17 @@ type ModelOption = {
 
 type Update = {
   text: string
+  stable?: string
+  preview?: string
   status: string
   model?: string
 }
 
 export function PanelView(props: { readonly session: MountedSession }) {
-  const ctx = usePlugin()
+  const ctx = usePlugin<typeof definition>()
   const ui = ctx.ui
-  const [text, setText] = createSignal("")
+  const [stable, setStable] = createSignal("")
+  const [preview, setPreview] = createSignal("")
   const [status, setStatus] = createSignal("idle")
   const [model, setModel] = createSignal("")
   const [options, setOptions] = createSignal<ModelOption[]>([])
@@ -26,6 +30,17 @@ export function PanelView(props: { readonly session: MountedSession }) {
   let pending: Update | undefined
 
   const rpc = () => ctx.client.rpc(Retc as any) as any
+  const skin = () => ctx.stores.style.value
+  const full = () => stable() + (preview() ? (stable() ? "\n\n" : "") + preview() : "")
+
+  const variables = () => ({
+    "--retc-bg": skin().bg,
+    "--retc-fg": skin().fg,
+    "--retc-border": skin().border,
+    "--retc-font": skin().font,
+    "--retc-size": `${skin().size}px`,
+    "--retc-line": String(skin().line),
+  })
 
   const pin = () => {
     if (!stick) return
@@ -36,7 +51,13 @@ export function PanelView(props: { readonly session: MountedSession }) {
 
   const apply = (update: Update) => {
     pending = undefined
-    setText(update.text)
+    if (typeof update.stable === "string") {
+      setStable(update.stable)
+      setPreview(update.preview ?? "")
+    } else {
+      setStable(update.text)
+      setPreview("")
+    }
     setStatus(update.status)
     if (update.model) setModel(update.model)
     pin()
@@ -54,7 +75,7 @@ export function PanelView(props: { readonly session: MountedSession }) {
     timer = setTimeout(() => {
       timer = undefined
       if (pending) apply(pending)
-    }, 160)
+    }, 260)
   }
 
   const load = async (sessionID: string) => {
@@ -89,7 +110,13 @@ export function PanelView(props: { readonly session: MountedSession }) {
     const off = rpc().events.on("reasoning", (event: any) => {
       const data = event.data ?? event
       if (data.sessionID !== props.session.id) return
-      queue({ text: data.text ?? "", status: data.status ?? "live", model: data.model })
+      queue({
+        text: data.text ?? "",
+        stable: data.stable,
+        preview: data.preview,
+        status: data.status ?? "live",
+        model: data.model,
+      })
     })
     onCleanup(() => {
       off()
@@ -103,7 +130,8 @@ export function PanelView(props: { readonly session: MountedSession }) {
       () => props.session.id,
       (sessionID) => {
         stick = true
-        setText("")
+        setStable("")
+        setPreview("")
         setStatus("idle")
         void load(sessionID)
       },
@@ -118,19 +146,30 @@ export function PanelView(props: { readonly session: MountedSession }) {
   }
 
   return (
-    <div class="retc-panel">
+    <div class="retc-panel" style={variables() as any}>
       <div class="retc-head">
         <span class="retc-dot" data-status={status()} />
         <span class="retc-title">思考译文</span>
-        <select class="retc-select" value={model()} onChange={(event) => void change(event.currentTarget.value)}>
+        <select
+          class="retc-select"
+          title={model()}
+          value={model()}
+          onChange={(event) => void change(event.currentTarget.value)}
+        >
+          <Show when={options().length === 0}>
+            <option value={model()}>{model() || "默认模型"}</option>
+          </Show>
           {options().map((item) => (
             <option value={item.value}>{item.label}</option>
           ))}
         </select>
       </div>
-      <div class="retc-body" classList={{ empty: !text(), error: status() === "error" }} ref={body}>
-        <Show when={text()} fallback={status() === "live" ? "翻译中…" : "等待思考…"}>
-          <ui.Markdown text={text()} />
+      <div class="retc-body" classList={{ empty: !full(), error: status() === "error" }} ref={body}>
+        <Show when={full()} fallback={status() === "live" ? "翻译中…" : "等待思考…"}>
+          <ui.Markdown text={stable()} />
+          <Show when={preview()}>
+            <ui.Markdown text={preview()} />
+          </Show>
         </Show>
       </div>
     </div>

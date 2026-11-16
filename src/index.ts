@@ -168,6 +168,8 @@ export default Plugin.define({
           sessionID: state.sessionID,
           partID: state.partID,
           text: view,
+          stable: state.zh,
+          preview: state.preview,
           status,
           model: settings.model,
         })
