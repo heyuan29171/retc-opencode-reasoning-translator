@@ -281,6 +281,11 @@ const tui: TuiPlugin = async (api, options) => {
     }
     session.part.complete = Boolean(part.time && part.time.end)
     session.lastEventAt = Date.now()
+    if (session.health === "error") {
+      session.health = "idle"
+      session.note = ""
+      session.part.enqueued = session.part.committed
+    }
     publish(session)
     if (session.active) pump(session)
   }
