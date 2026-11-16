@@ -6,6 +6,7 @@ import type { definition } from "./definition.ts"
 type ModelOption = {
   value: string
   label: string
+  provider: string
 }
 
 type Update = {
@@ -107,7 +108,8 @@ export function PanelView(props: { readonly session: MountedSession }) {
       const result = await rpc().models({})
       const list: ModelOption[] = (result.models ?? []).map((item: any) => ({
         value: `${item.providerID}/${item.id}`,
-        label: `${item.name} · ${item.providerID}`,
+        label: item.name ?? item.id,
+        provider: item.providerID,
       }))
       setOptions(list.sort((a: ModelOption, b: ModelOption) => a.label.localeCompare(b.label)))
       const settings = await rpc().getSettings({})
@@ -161,6 +163,21 @@ export function PanelView(props: { readonly session: MountedSession }) {
     } catch {}
   }
 
+  const groups = () => {
+    const order = ["zhipuai", "opencode-go", "opencode", "deepseek", "ollama"]
+    const map = new Map<string, ModelOption[]>()
+    for (const item of options()) {
+      const list = map.get(item.provider) ?? []
+      list.push(item)
+      map.set(item.provider, list)
+    }
+    return [...map.entries()].sort((a, b) => {
+      const left = order.indexOf(a[0])
+      const right = order.indexOf(b[0])
+      return (left < 0 ? 99 : left) - (right < 0 ? 99 : right) || a[0].localeCompare(b[0])
+    })
+  }
+
   const [showSettings, setShowSettings] = createSignal(false)
   const store = () => ctx.stores.style
   const field = (key: "bg" | "fg" | "border" | "font", value: string) => {
@@ -203,8 +220,12 @@ export function PanelView(props: { readonly session: MountedSession }) {
           <Show when={options().length === 0}>
             <option value={model()}>{model() || "默认模型"}</option>
           </Show>
-          {options().map((item) => (
-            <option value={item.value}>{item.label}</option>
+          {groups().map(([provider, items]) => (
+            <optgroup label={provider}>
+              {items.map((item) => (
+                <option value={item.value}>{item.label}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <button class="retc-gear" title="样式设置" onClick={() => setShowSettings(!showSettings())}>

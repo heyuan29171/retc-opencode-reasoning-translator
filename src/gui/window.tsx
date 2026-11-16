@@ -1,6 +1,5 @@
-import { Command, MenuItem, Panel, SettingsPage, Style, type PanelTab, type Plugin } from "@opencode/plugin/gui"
+import { Command, MenuItem, Panel, Style, type PanelTab, type Plugin } from "@opencode/plugin/gui"
 import { PanelView } from "./panel.tsx"
-import { SettingsView } from "./settings.tsx"
 import css from "./style.css?inline"
 
 export const setup: Plugin.Setup = (ctx) => {
@@ -67,18 +66,4 @@ export const setup: Plugin.Setup = (ctx) => {
       }
     },
   )
-
-  ctx.add(SettingsPage, {
-    id: ctx.id,
-    icon: "extensions",
-    get title() {
-      return "思考译文"
-    },
-    get entries() {
-      return [
-        { id: `${ctx.id}.style`, title: "样式", description: "背景、文字颜色、字体、字号、行高" },
-      ]
-    },
-    render: (input) => <SettingsView highlight={input.target} />,
-  })
 }

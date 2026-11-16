@@ -96,7 +96,13 @@
 
 .retc-body * {
   color: var(--retc-fg, #141414);
-  font-family: inherit;
+}
+
+.retc-body code,
+.retc-body pre,
+.retc-body kbd,
+.retc-body samp {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 .retc-body > *:first-child {
