@@ -290,6 +290,7 @@ const tui: TuiPlugin = async (api, options) => {
     if (session.active) pump(session)
   }
 
+
   api.event.on("message.part.updated", onPart)
 
   const openPicker = () => {
