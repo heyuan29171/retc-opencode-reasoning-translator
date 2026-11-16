@@ -1,0 +1,46 @@
+{
+  "name": "retc-opencode-reasoning-translator",
+  "version": "0.1.0",
+  "description": "OpenCode TUI plugin that streams a Simplified Chinese translation of the model's English reasoning in the sidebar, with a model picker.",
+  "type": "module",
+  "license": "MIT",
+  "author": "heyuan29171",
+  "homepage": "https://github.com/heyuan29171/retc-opencode-reasoning-translator",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heyuan29171/retc-opencode-reasoning-translator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/heyuan29171/retc-opencode-reasoning-translator/issues"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "opencode-tui",
+    "reasoning",
+    "thinking",
+    "translation",
+    "chinese",
+    "zh-cn",
+    "retc"
+  ],
+  "exports": {
+    "./tui": "./src/tui.tsx"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "opencode": ">=1.19.0"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.19.0"
+  },
+  "peerDependenciesMeta": {
+    "@opencode-ai/plugin": {
+      "optional": true
+    }
+  }
+}
