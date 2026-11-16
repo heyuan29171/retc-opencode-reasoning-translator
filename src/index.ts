@@ -166,7 +166,14 @@ export default Plugin.define({
 
     const ask = async (text: string, onDelta: (text: string) => void) => {
       const target = ref()
-      if (target.providerID === "zhipuai") return zhipuTranslate(target.id, text, onDelta)
+      if (target.providerID === "zhipuai") {
+        try {
+          return await zhipuTranslate(target.id, text, onDelta)
+        } catch (error) {
+          if (target.id === "glm-4.5-air") throw error
+          return zhipuTranslate("glm-4.5-air", text, onDelta)
+        }
+      }
       const result = await ctx.experimental.generate.text({ model: target, prompt: prompt(text) })
       const out = result.text.trim()
       onDelta(out)
