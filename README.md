@@ -3,7 +3,7 @@
 把模型的**英文思考过程（reasoning）**实时翻译成中文，**直接显示在 OpenCode 聊天里**。
 
 - 模型开始思考后，思考块下面会多出一个「【思考译文】」块，边翻边补，不用等回答结束
-- 位置在思考块和正文之间，Desktop / TUI 都能看到
+- 位置在思考块和正文之间，Desktop 里直接可见
 - 不需要额外窗口、不需要切换界面
 - 译文只用于显示：**每次请求前会自动从上下文里删掉**，不增加 token
 
@@ -57,17 +57,13 @@ git clone https://github.com/heyuan29171/retc-opencode-reasoning-translator.git 
 
 然后双击 `retc-panel.cmd`，或直接打开 `http://127.0.0.1:4791/`。
 
-## 终端 TUI
+## 终端 TUI（已拆分）
 
-`~/.config/opencode/tui.json`：
+TUI 版本已拆到副仓库：
 
-```json
-{
-  "plugin": ["D:/code/program/retc-opencode-reasoning-translator/src/tui.tsx"]
-}
-```
+https://github.com/heyuan29171/retc-opencode-tui-translator
 
-右侧栏内嵌流式译文，点击标题可切换翻译模型。
+那是早期副产物，**没有经过完整验证**，只适配 OpenCode 1.19.x 的终端 TUI（`tui.json` + `@opencode-ai/plugin/tui`），不适用于 Desktop。本仓库专注 Desktop 方向。
 
 ## 工作原理
 

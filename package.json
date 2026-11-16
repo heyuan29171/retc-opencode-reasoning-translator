@@ -1,7 +1,7 @@
 {
   "name": "retc-opencode-reasoning-translator",
   "version": "0.1.0",
-  "description": "OpenCode TUI plugin that streams a Simplified Chinese translation of the model's English reasoning in the sidebar, with a model picker.",
+  "description": "OpenCode plugin that streams a Simplified Chinese translation of the model's English reasoning inside the chat. Main project: desktop-first, TUI part lives in retc-opencode-tui-translator.",
   "type": "module",
   "license": "MIT",
   "author": "heyuan29171",
@@ -17,7 +17,6 @@
   "keywords": [
     "opencode",
     "opencode-plugin",
-    "opencode-tui",
     "reasoning",
     "thinking",
     "translation",
@@ -26,8 +25,7 @@
     "retc"
   ],
   "exports": {
-    "./server": "./src/server.ts",
-    "./tui": "./src/tui.tsx"
+    "./server": "./src/server.ts"
   },
   "files": [
     "src",
