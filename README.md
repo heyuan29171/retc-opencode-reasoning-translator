@@ -1,20 +1,11 @@
 # retc — reasoning english to chinese
 
-把模型**英文思考过程（reasoning）**实时翻译成简体中文，给 OpenCode 用。
+把模型的**英文思考过程（reasoning）**实时翻译成中文，**直接显示在 OpenCode 聊天里**。
 
-同一个仓库提供两种形态：
-
-| 形态 | 适用 | 效果 |
-| --- | --- | --- |
-| **Server 插件** | OpenCode **Desktop**、`opencode run`、终端 TUI | ① 右侧**独立小窗**流式显示译文 ② 思考块末尾追加「【中文翻译】」 |
-| **TUI 插件** | 终端 `opencode`（TUI = terminal UI） | 右侧栏内嵌流式译文，点击标题切换翻译模型 |
-
-### 先说清楚：TUI 是什么
-
-- **TUI** = 终端界面，就是在 PowerShell / Windows Terminal 里敲 `opencode` 打开的字符界面
-- **Desktop** = 现在这个带窗口的 App（`@opencode-aidesktop`）
-
-Desktop 1.18 不支持“往聊天界面里插入面板”的插件；所以本项目的 Server 插件会在本机起一个 `http://127.0.0.1:4791` 的小网页，用 `retc-panel.cmd` 打开成独立窗口，放在 OpenCode 旁边即可。译文由插件推送，和聊天同步流式更新。
+- 模型开始思考后，思考块下面会多出一个「【思考译文】」块，边翻边补，不用等回答结束
+- 位置在思考块和正文之间，Desktop / TUI 都能看到
+- 不需要额外窗口、不需要切换界面
+- 译文只用于显示：**每次请求前会自动从上下文里删掉**，不增加 token
 
 ## 安装
 
@@ -22,7 +13,7 @@ Desktop 1.18 不支持“往聊天界面里插入面板”的插件；所以本�
 git clone https://github.com/heyuan29171/retc-opencode-reasoning-translator.git D:\code\program\retc-opencode-reasoning-translator
 ```
 
-在 `~/.config/opencode/opencode.json` 的 `plugin` 数组里加**目录路径**（Server 插件）：
+在 `~/.config/opencode/opencode.json` 的 `plugin` 数组里加**目录路径**：
 
 ```json
 {
@@ -30,31 +21,41 @@ git clone https://github.com/heyuan29171/retc-opencode-reasoning-translator.git 
 }
 ```
 
-完全退出并重新打开 OpenCode。
+完全退出并重新打开 OpenCode。之后随便聊一句，带思考的回复里就会出现【思考译文】。
 
-想固定翻译模型（默认跟随当前会话选中的模型）：
+## 配置
+
+翻译默认使用**当前会话选中的模型**（你在界面里换模型，翻译跟着换）。也可以固定：
 
 ```json
 {
   "plugin": [
-    ["D:/code/program/retc-opencode-reasoning-translator", { "model": "opencode-go/deepseek-v4.1-flash" }]
+    [
+      "D:/code/program/retc-opencode-reasoning-translator",
+      {
+        "model": "opencode-go/deepseek-v4.1-flash"
+      }
+    ]
   ]
 }
 ```
 
-可选参数：`port`（默认 4791）、`inline`（默认 true，是否同时写回思考块）、`panel`（默认 true，是否启动侧边面板）。
+| 选项 | 默认 | 说明 |
+| --- | --- | --- |
+| `model` | 跟随会话 | `provider/model` 格式，固定翻译模型 |
+| `inline` | `true` | 是否在聊天里插入【思考译文】块 |
+| `panel` | `false` | 可选：额外起一个本地网页面板（见下） |
+| `port` | `4791` | `panel: true` 时的端口 |
 
-## 打开侧边面板
+## 可选：侧边网页面板
 
-双击 `retc-panel.cmd`，或：
+默认**关闭**。如果你另外想要一个小窗口：
 
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File D:\code\program\retc-opencode-reasoning-translator\retc-panel.ps1
+```json
+{ "plugin": [["D:/code/program/retc-opencode-reasoning-translator", { "panel": true }]] }
 ```
 
-- 用 Edge 的 app 模式打开一个 460×940 的窗口，自动贴在屏幕右侧并置顶
-- 不想置顶：加 `-NoTopMost`；换端口：`-Port 4800`
-- 直接浏览器打开 `http://127.0.0.1:4791/` 也可以
+然后双击 `retc-panel.cmd`，或直接打开 `http://127.0.0.1:4791/`。
 
 ## 终端 TUI
 
@@ -66,30 +67,26 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File D:\code\program\retc-opencode-reas
 }
 ```
 
-右侧栏出现「思考译文」；点击「思考译文 模型名 ▾」弹出模型选择框（所有已配置模型，按 provider 分组），也可用 `/retc-model`。
+右侧栏内嵌流式译文，点击标题可切换翻译模型。
 
 ## 工作原理
 
-Server 插件：
-
 ```
-reasoning part 每次更新（还没结束也能翻）
-  → 按句子/段落切块（≥120 字符）
-  → 用会话当前模型流式翻译
-  → SSE 推送到 http://127.0.0.1:4791 的侧边面板
-  → 思考结束后，把完整译文一次性写回 reasoning part（【中文翻译】）
-  → 下一次请求前，experimental.chat.messages.transform 把译文剥掉
+reasoning part 开始
+  → 立即在同一个 assistant message 里插入一个 text part
+    （id = reasoning part id + "0"，所以排序刚好在思考块后面）
+  → reasoning 流式更新时按句子切块翻译
+  → 每 400ms 更新一次这个 text part，看起来就是流式输出
+  → 请求前：experimental.chat.messages.transform 删除带 metadata.retc 的 part
 ```
 
-写回思考块的译文只用于显示，**发回模型前会删除**，不会多花后续 token。
-
-TUI 插件：按句切块、2 路并发、按原顺序显示在右侧栏。
+译文块带 `metadata.retc = true`，只用于显示；不会进入模型上下文，也不会改变思考内容本身。
 
 ## 注意
 
-- 侧边面板同一时间只能被一个 OpenCode 实例占用（默认端口 4791）
 - 每次翻译都会消耗所选模型的额度
-- 后台子 agent 的思考也会翻译
+- 后台子 agent 的思考也会翻译（每个子会话独立）
+- 如果模型不支持把 reasoning 暴露出来，就没有可翻译的内容
 
 ## 排错
 

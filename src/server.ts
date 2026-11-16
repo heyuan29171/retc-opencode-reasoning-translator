@@ -8,6 +8,7 @@ import { createPanel } from "./panel"
 const MARK = "【中文翻译】"
 const STRIP = /\n*【中文翻译】\n[\s\S]*$/
 const DEFAULT_PORT = 4791
+const HEAD = "【思考译文】\n"
 
 function log(text: string) {
   if (!process.env.RETC_DEBUG) return
@@ -31,8 +32,9 @@ type Rx = {
   complete: boolean
   last: number
   timer?: ReturnType<typeof setTimeout>
+  flush?: ReturnType<typeof setTimeout>
+  tp?: any
   model: string
-  patched: boolean
 }
 
 function boundary(text: string) {
@@ -61,8 +63,8 @@ export const plugin: Plugin = async ({ client }, options) => {
   const forced = typeof options?.model === "string" && options.model.includes("/") ? options.model : undefined
   const inline = options?.inline !== false
   const port = typeof options?.port === "number" ? options.port : DEFAULT_PORT
-  const panel = options?.panel === false ? null : createPanel(port)
-  log(panel ? `panel on http://127.0.0.1:${panel.port}/` : "panel unavailable")
+  const panel = options?.panel === true ? createPanel(port) : null
+  log(panel ? `panel on http://127.0.0.1:${panel.port}/` : "panel disabled")
 
   const catalog = async () => {
     if (providers) return providers
@@ -110,9 +112,9 @@ export const plugin: Plugin = async ({ client }, options) => {
     return refFor({ providerID, modelID: rest.join("/") })
   }
 
-  const write = async (part: any, text: string) => {
+  const write = async (part: any) => {
     const api: any = client as any
-    const body = { ...part, text }
+    const body = { ...part }
     if (api.part && typeof api.part.update === "function") {
       await api.part.update({
         path: { sessionID: part.sessionID, messageID: part.messageID, partID: part.id },
@@ -130,6 +132,38 @@ export const plugin: Plugin = async ({ client }, options) => {
     throw new Error("当前版本不支持更新消息 part")
   }
 
+  const ensurePart = (st: Rx) => {
+    if (st.tp) return st.tp
+    const now = Date.now()
+    st.tp = {
+      id: st.part.id + "0",
+      sessionID: st.sid,
+      messageID: st.part.messageID,
+      type: "text",
+      text: HEAD + "（翻译中…）",
+      time: { start: now },
+      metadata: { retc: true },
+    }
+    void write(st.tp).catch((error) => log("create part error: " + String(error instanceof Error ? error.message : error)))
+    return st.tp
+  }
+
+  const paint = (st: Rx) => {
+    if (!st.tp || !st.zh) return
+    st.tp.text = HEAD + st.zh
+    st.tp.time = { start: (st.tp.time && st.tp.time.start) || Date.now(), end: Date.now() }
+    void write(st.tp).catch((error) => log("paint error: " + String(error instanceof Error ? error.message : error)))
+  }
+
+  const schedulePaint = (st: Rx) => {
+    if (!inline) return
+    if (st.flush) return
+    st.flush = setTimeout(() => {
+      st.flush = undefined
+      paint(st)
+    }, 400)
+  }
+
   const schedule = (st: Rx) => {
     if (st.timer) return
     st.timer = setTimeout(() => {
@@ -140,18 +174,10 @@ export const plugin: Plugin = async ({ client }, options) => {
 
   const fail = (st: Rx, note: string) => {
     log("server error: " + note)
-    panel?.push({ sid: st.sid, part: st.part.id, zh: st.zh, status: "error", model: st.model, note })
-  }
-
-  const finish = async (st: Rx) => {
-    if (!st.zh.trim()) return
-    panel?.push({ sid: st.sid, part: st.part.id, zh: st.zh, status: "done", model: st.model })
-    if (!inline || st.patched) return
-    st.patched = true
-    try {
-      await write(st.part, st.part.text + "\n\n" + MARK + "\n" + st.zh)
-    } catch (error) {
-      log("patch error: " + String(error instanceof Error ? error.message : error))
+    if (st.tp) {
+      st.tp.text = HEAD + (st.zh || "") + (st.zh ? "\n\n" : "") + "（翻译失败：" + note + "）"
+      st.tp.time = { start: (st.tp.time && st.tp.time.start) || Date.now(), end: Date.now() }
+      void write(st.tp).catch(() => {})
     }
   }
 
@@ -159,8 +185,7 @@ export const plugin: Plugin = async ({ client }, options) => {
     if (st.busy) return
     const rest = st.text.slice(st.done)
     if (!rest.trim()) {
-      if (st.complete) await finish(st)
-      else schedule(st)
+      if (!st.complete) schedule(st)
       return
     }
     const final = st.complete || Date.now() - st.last > 2400
@@ -182,20 +207,14 @@ export const plugin: Plugin = async ({ client }, options) => {
     const join = (text: string) => (base.trim() ? base.trimEnd() + "\n" + text : text)
     try {
       const out = await translate(ref, chunk, "", (partial) => {
-        panel?.push({ sid: st.sid, part: st.part.id, zh: join(partial), status: "live", model: ref.name })
+        st.zh = join(partial)
+        schedulePaint(st)
       })
       st.done += size
       st.zh = join(out)
       st.busy = false
-      panel?.push({
-        sid: st.sid,
-        part: st.part.id,
-        zh: st.zh,
-        status: st.complete && st.done >= st.text.length ? "done" : "live",
-        model: ref.name,
-      })
+      schedulePaint(st)
       if (st.done < st.text.length || !st.complete) pump(st)
-      else await finish(st)
     } catch (error) {
       st.busy = false
       fail(st, String(error instanceof Error ? error.message : error))
@@ -218,10 +237,9 @@ export const plugin: Plugin = async ({ client }, options) => {
         complete: false,
         last: Date.now(),
         model: "",
-        patched: false,
       }
       states.set(part.id, st)
-      panel?.push({ sid: part.sessionID, part: part.id, zh: "", status: "idle", model: "" })
+      ensurePart(st)
     }
     st.part = part
     st.text = part.text
@@ -240,18 +258,26 @@ export const plugin: Plugin = async ({ client }, options) => {
       refs.delete(input.sessionID)
     },
     "experimental.chat.messages.transform": async (_input, output) => {
+      let removed = 0
       let stripped = 0
       for (const message of output.messages as any[]) {
-        const parts = message && message.parts
-        if (!Array.isArray(parts)) continue
-        for (const part of parts) {
+        if (!message || !Array.isArray(message.parts)) continue
+        const next = message.parts.filter((part: any) => {
+          if (part && part.metadata && part.metadata.retc) {
+            removed += 1
+            return false
+          }
+          return true
+        })
+        if (next.length !== message.parts.length) message.parts = next
+        for (const part of message.parts) {
           if ((part.type === "reasoning" || part.type === "text") && typeof part.text === "string" && part.text.includes(MARK)) {
             part.text = part.text.replace(STRIP, "")
             stripped += 1
           }
         }
       }
-      if (stripped) log(`stripped ${stripped} translated part(s) before request`)
+      if (removed || stripped) log(`removed ${removed} retc part(s), stripped ${stripped} marker(s) before request`)
     },
     event: async ({ event }) => {
       if (event.type !== "message.part.updated") return
