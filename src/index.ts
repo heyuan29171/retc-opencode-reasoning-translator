@@ -156,7 +156,7 @@ export default Plugin.define({
     })
 
     const emit = (state: State, status: string) => {
-      const view = state.zh + (state.preview ? (state.zh ? "\n" : "") + state.preview : "")
+      const view = state.zh + (state.preview ? (state.zh ? "\n\n" : "") + state.preview : "")
       latest.set(state.sessionID, { text: view, status, model: settings.model })
       void reg.events
         .emit("reasoning", {
@@ -224,7 +224,7 @@ export default Plugin.define({
           emit(state, "live")
         })
         state.done += size
-        if (zh.trim()) state.zh = state.zh ? state.zh + "\n" + zh : zh
+        if (zh.trim()) state.zh = state.zh ? state.zh + "\n\n" + zh : zh
         state.preview = ""
         state.busy = false
         emit(state, state.complete && state.done >= state.text.length ? "done" : "live")
