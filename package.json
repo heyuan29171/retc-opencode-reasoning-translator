@@ -1,11 +1,10 @@
 {
   "name": "retc-opencode-reasoning-translator",
-  "version": "0.1.0",
-  "description": "OpenCode plugin that streams a Simplified Chinese translation of the model's English reasoning inside the chat. Main project: desktop-first, TUI part lives in retc-opencode-tui-translator.",
+  "version": "0.2.0",
+  "description": "OpenCode Desktop GUI plugin: live Simplified Chinese translation of the model's English reasoning in a side panel (retc = reasoning english to chinese).",
   "type": "module",
   "license": "MIT",
   "author": "heyuan29171",
-  "main": "./src/server.ts",
   "homepage": "https://github.com/heyuan29171/retc-opencode-reasoning-translator",
   "repository": {
     "type": "git",
@@ -17,30 +16,42 @@
   "keywords": [
     "opencode",
     "opencode-plugin",
+    "opencode-desktop",
+    "opencode-gui",
     "reasoning",
     "thinking",
     "translation",
     "chinese",
-    "zh-cn",
     "retc"
   ],
   "exports": {
-    "./server": "./src/server.ts"
+    ".": "./src/index.ts",
+    "./rpc": "./src/rpc.ts",
+    "./gui-experimental": "./dist/gui-experimental.cjs"
   },
   "files": [
     "src",
+    "dist",
     "README.md",
     "LICENSE"
   ],
+  "scripts": {
+    "build": "vite build",
+    "watch": "vite build --watch",
+    "typecheck": "tsc --noEmit"
+  },
   "engines": {
-    "opencode": ">=1.19.0"
+    "node": ">=22"
   },
-  "peerDependencies": {
-    "@opencode-ai/plugin": ">=1.19.0"
+  "dependencies": {
+    "@opencode/plugin": "^2.3.0",
+    "@rollup/rollup-win32-x64-msvc": "^4.68.3"
   },
-  "peerDependenciesMeta": {
-    "@opencode-ai/plugin": {
-      "optional": true
-    }
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "solid-js": "^1.9.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0",
+    "vite-plugin-solid": "^2.11.0"
   }
 }
