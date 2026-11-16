@@ -1,92 +1,75 @@
 # retc — reasoning english to chinese
 
-把模型的**英文思考过程（reasoning）**实时翻译成中文，**直接显示在 OpenCode 聊天里**。
+OpenCode **Desktop** 的 GUI 插件：把模型的**英文思考过程（reasoning）**实时翻译成简体中文，显示在会话右侧的独立面板里。
 
-- 模型开始思考后，思考块下面会多出一个「【思考译文】」块，边翻边补，不用等回答结束
-- 位置在思考块和正文之间，Desktop 里直接可见
-- 不需要额外窗口、不需要切换界面
-- 译文只用于显示：**每次请求前会自动从上下文里删掉**，不增加 token
+- 侧栏面板「思考译文」，淡金色排版，和正文明显分开
+- 边思考边翻译：服务端订阅 `session.reasoning.*` 事件，按句切块翻译后推给面板
+- 面板顶部可切换翻译模型（列出所有已配置模型）
+- **完全不写会话消息**：零上下文占用，压缩/摘要也不会有残留
+- 不弹额外窗口，不修改 OpenCode 本体
+
+## 环境要求
+
+- OpenCode **Desktop 2.2.0+**（桌面插件 API；在 2.3.0 上开发）
+- Node.js 22+（只用于构建 GUI 包）
 
 ## 安装
 
 ```powershell
 git clone https://github.com/heyuan29171/retc-opencode-reasoning-translator.git D:\code\program\retc-opencode-reasoning-translator
+cd D:\code\program\retc-opencode-reasoning-translator
+npm install
+npm run build
 ```
 
-在 `~/.config/opencode/opencode.json` 的 `plugin` 数组里加**目录路径**：
+在 `~/.config/opencode/opencode.json` 里加：
 
 ```json
 {
-  "plugin": ["D:/code/program/retc-opencode-reasoning-translator"]
+  "plugins": ["D:/code/program/retc-opencode-reasoning-translator"]
 }
 ```
 
-完全退出并重新打开 OpenCode。之后随便聊一句，带思考的回复里就会出现【思考译文】。
+**完全退出并重新打开 OpenCode Desktop**。进入会话后，右侧面板会多一个「思考译文」标签；也可以从侧栏 `+` 菜单或命令面板 `retc: 思考译文` 打开。
 
-## 配置
+## 使用
 
-翻译默认使用**当前会话选中的模型**（你在界面里换模型，翻译跟着换）。也可以固定：
-
-```json
-{
-  "plugin": [
-    [
-      "D:/code/program/retc-opencode-reasoning-translator",
-      {
-        "model": "opencode-go/deepseek-v4.1-flash"
-      }
-    ]
-  ]
-}
-```
-
-| 选项 | 默认 | 说明 |
-| --- | --- | --- |
-| `model` | 跟随会话 | `provider/model` 格式，固定翻译模型 |
-| `inline` | `true` | 是否在聊天里插入【思考译文】块 |
-| `panel` | `false` | 可选：额外起一个本地网页面板（见下） |
-| `port` | `4791` | `panel: true` 时的端口 |
-
-## 可选：侧边网页面板
-
-默认**关闭**。如果你另外想要一个小窗口：
-
-```json
-{ "plugin": [["D:/code/program/retc-opencode-reasoning-translator", { "panel": true }]] }
-```
-
-然后双击 `retc-panel.cmd`，或直接打开 `http://127.0.0.1:4791/`。
-
-## 终端 TUI（已拆分）
-
-TUI 版本已拆到副仓库：
-
-https://github.com/heyuan29171/retc-opencode-tui-translator
-
-那是早期副产物，**没有经过完整验证**，只适配 OpenCode 1.19.x 的终端 TUI（`tui.json` + `@opencode-ai/plugin/tui`），不适用于 Desktop。本仓库专注 Desktop 方向。
+- 默认翻译模型：`opencode-go/deepseek-v4.1-flash`
+- 面板右上角的下拉框可以换成任意已配置模型，选择会保存在插件自己的 storage 里
+- 翻译失败时状态点变红，内容区显示「等待思考…」；下一条思考会重新尝试
 
 ## 工作原理
 
 ```
-reasoning part 开始
-  → 立即在同一个 assistant message 里插入一个 text part
-    （id = reasoning part id + "0"，所以排序刚好在思考块后面）
-  → reasoning 流式更新时按句子切块翻译
-  → 每 400ms 更新一次这个 text part，看起来就是流式输出
-  → 请求前：experimental.chat.messages.transform 删除带 metadata.retc 的 part
+server 部分（@opencode/plugin）
+  session.reasoning.started / delta / ended
+    → 按句切块（≥120 字符）
+    → ctx.experimental.generate.text() 逐块翻译
+    → RPC 事件 reasoning 推给 GUI
+
+GUI 部分（./gui-experimental，Vite 打包）
+  Panel（侧栏）+ Style（淡金 CSS）
+    → 订阅 RPC 事件，按 session 过滤
+    → 流式渲染，自动滚动
 ```
 
-译文块带 `metadata.retc = true`，只用于显示；不会进入模型上下文，也不会改变思考内容本身。
+整个流程只读事件，不写消息、不碰会话内容。
 
-## 注意
+## 开发
 
-- 每次翻译都会消耗所选模型的额度
-- 后台子 agent 的思考也会翻译（每个子会话独立）
-- 如果模型不支持把 reasoning 暴露出来，就没有可翻译的内容
+```powershell
+npm run watch
+npm run typecheck
+```
+
+- GUI 改动：本地目录的 `./gui-experimental` 重新构建后，Desktop 会重新加载 GUI
+- server 改动：需要重启 OpenCode Desktop
 
 ## 排错
 
-设置 `RETC_DEBUG=1` 后重启，日志写到 `%TEMP%\retc.log`。
+- 插件没加载：看 OpenCode 日志里的 `loading plugin` / `failed to load plugin`
+- 面板没有译文：确认当前模型会产出 reasoning；确认 provider 有可用额度
+- GUI 改完没生效：重新 `npm run build`，必要时重启 Desktop
 
 ## License
 

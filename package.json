@@ -5,6 +5,7 @@
   "type": "module",
   "license": "MIT",
   "author": "heyuan29171",
+  "main": "./src/index.ts",
   "homepage": "https://github.com/heyuan29171/retc-opencode-reasoning-translator",
   "repository": {
     "type": "git",

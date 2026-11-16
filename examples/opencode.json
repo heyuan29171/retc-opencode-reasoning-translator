@@ -1,11 +1,4 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": [
-    [
-      "D:/code/program/retc-opencode-reasoning-translator",
-      {
-        "model": "opencode-go/deepseek-v4.1-flash"
-      }
-    ]
-  ]
+  "plugins": ["D:/code/program/retc-opencode-reasoning-translator"]
 }
