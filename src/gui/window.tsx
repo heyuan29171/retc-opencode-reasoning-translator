@@ -69,14 +69,14 @@ export const setup: Plugin.Setup = (ctx) => {
   )
 
   ctx.add(SettingsPage, {
-    id: "style",
+    id: ctx.id,
     icon: "extensions",
     get title() {
       return "思考译文"
     },
     get entries() {
       return [
-        { id: "style", title: "样式", description: "背景、文字颜色、字体、字号、行高" },
+        { id: `${ctx.id}.style`, title: "样式", description: "背景、文字颜色、字体、字号、行高" },
       ]
     },
     render: (input) => <SettingsView highlight={input.target} />,

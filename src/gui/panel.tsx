@@ -89,13 +89,13 @@ export function PanelView(props: { readonly session: MountedSession }) {
 
   const models = async () => {
     try {
-      const result = await rpc().models()
+      const result = await rpc().models({})
       const list: ModelOption[] = (result.models ?? []).map((item: any) => ({
         value: `${item.providerID}/${item.id}`,
         label: `${item.name} · ${item.providerID}`,
       }))
       setOptions(list.sort((a: ModelOption, b: ModelOption) => a.label.localeCompare(b.label)))
-      const settings = await rpc().getSettings()
+      const settings = await rpc().getSettings({})
       if (settings?.model) setModel(settings.model)
     } catch {}
   }
