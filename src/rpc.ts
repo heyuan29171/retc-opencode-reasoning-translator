@@ -75,6 +75,35 @@ export const Retc = Rpc.define({
         additionalProperties: false,
       },
     },
+    history: {
+      input: {
+        type: "object",
+        properties: { sessionID: { type: "string" } },
+        required: ["sessionID"],
+        additionalProperties: false,
+      },
+      output: {
+        type: "object",
+        properties: {
+          entries: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                at: { type: "number" },
+                text: { type: "string" },
+                model: { type: "string" },
+              },
+              required: ["id", "at", "text", "model"],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ["entries"],
+        additionalProperties: false,
+      },
+    },
   },
   events: {
     reasoning: {

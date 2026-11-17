@@ -33,6 +33,13 @@ type Latest = {
   model: string
 }
 
+type HistoryEntry = {
+  id: string
+  at: number
+  text: string
+  model: string
+}
+
 function boundary(text: string) {
   let index = text.lastIndexOf("\n\n")
   if (index < 120) index = text.lastIndexOf("\n")
@@ -130,6 +137,28 @@ export default Plugin.define({
 
     const states = new Map<string, State>()
     const latest = new Map<string, Latest>()
+    const histories = new Map<string, HistoryEntry[]>()
+
+    const loadHistory = async (sessionID: string) => {
+      if (histories.has(sessionID)) return histories.get(sessionID) ?? []
+      try {
+        const saved: any = await ctx.storage.get("history." + sessionID)
+        if (Array.isArray(saved)) {
+          histories.set(sessionID, saved)
+          return saved
+        }
+      } catch {}
+      histories.set(sessionID, [])
+      return []
+    }
+
+    const saveEntry = (sessionID: string, entry: HistoryEntry) => {
+      if (!entry.text.trim()) return
+      const list = histories.get(sessionID) ?? []
+      const next = [entry, ...list.filter((item) => item.id !== entry.id)].slice(0, 50)
+      histories.set(sessionID, next)
+      void ctx.storage.set("history." + sessionID, next).catch(() => {})
+    }
 
     const ref = () => {
       const [providerID, ...rest] = settings.model.split("/")
@@ -139,7 +168,10 @@ export default Plugin.define({
     const reg = await ctx.rpc.register(Retc as any, {
       snapshot: async (input: any) => {
         const hit = latest.get(input.sessionID)
-        return hit ?? { text: "", status: "idle", model: settings.model }
+        if (hit) return hit
+        const entries = await loadHistory(input.sessionID)
+        const last = entries[0]
+        return last ? { text: last.text, status: "done", model: last.model } : { text: "", status: "idle", model: settings.model }
       },
       models: async () => {
         const result: any = await ctx.model.list()
@@ -158,11 +190,23 @@ export default Plugin.define({
         await ctx.storage.set("settings", settings)
         return { ok: true }
       },
+      history: async (input: any) => {
+        const entries = await loadHistory(input.sessionID)
+        return { entries }
+      },
     })
 
     const emit = (state: State, status: string) => {
       const view = state.zh + (state.preview ? (state.zh ? "\n\n" : "") + state.preview : "")
       latest.set(state.sessionID, { text: view, status, model: settings.model })
+      if (status === "done" && state.zh.trim()) {
+        saveEntry(state.sessionID, {
+          id: state.partID,
+          at: Date.now(),
+          text: state.zh,
+          model: settings.model,
+        })
+      }
       void reg.events
         .emit("reasoning", {
           sessionID: state.sessionID,
@@ -256,6 +300,9 @@ export default Plugin.define({
           const partID = `${data.assistantMessageID ?? ""}:${data.ordinal ?? 0}`
           let state = states.get(sid)
           if (!state || state.partID !== partID) {
+            if (state && state.zh.trim()) {
+              saveEntry(sid, { id: state.partID, at: Date.now(), text: state.zh, model: settings.model })
+            }
             state = {
               sessionID: sid,
               partID,
@@ -290,6 +337,11 @@ export default Plugin.define({
     })()
 
     return () => {
+      for (const state of states.values()) {
+        if (state.zh.trim()) {
+          saveEntry(state.sessionID, { id: state.partID, at: Date.now(), text: state.zh, model: settings.model })
+        }
+      }
       controller.abort()
       void reg.dispose()
     }

@@ -270,3 +270,44 @@
 .retc-gear:hover {
   border-color: var(--retc-fg, #141414);
 }
+
+.retc-history {
+  flex: none;
+  max-height: 38%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--retc-border, #666);
+}
+
+.retc-history-empty {
+  font-size: 12px;
+  opacity: 0.6;
+  padding: 2px;
+}
+
+.retc-entry {
+  font-size: 12px;
+}
+
+.retc-entry summary {
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}
+
+.retc-entry-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 6px 8px;
+  margin-top: 4px;
+  max-height: 40vh;
+  overflow: auto;
+  border-left: 2px solid var(--retc-border, #666);
+  background: color-mix(in srgb, var(--retc-bg, #9a9a9a) 88%, var(--retc-fg, #141414));
+  border-radius: 3px;
+}

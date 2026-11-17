@@ -13,8 +13,16 @@ type Update = {
   text: string
   stable?: string
   preview?: string
+  partID?: string
   status: string
   model?: string
+}
+
+type HistoryEntry = {
+  id: string
+  at: number
+  text: string
+  model: string
 }
 
 function Field(props: { label: string; value: string; onInput: (value: string) => void }) {
@@ -38,6 +46,9 @@ export function PanelView(props: { readonly session: MountedSession }) {
   const [status, setStatus] = createSignal("idle")
   const [model, setModel] = createSignal("")
   const [options, setOptions] = createSignal<ModelOption[]>([])
+  const [history, setHistory] = createSignal<HistoryEntry[]>([])
+  const [showHistory, setShowHistory] = createSignal(false)
+  const [partID, setPartID] = createSignal("")
   let body: HTMLDivElement | undefined
   let stick = true
   let programmaticUntil = 0
@@ -74,8 +85,16 @@ export function PanelView(props: { readonly session: MountedSession }) {
       setStable(update.text)
       setPreview("")
     }
+    if (update.partID) setPartID(update.partID)
     setStatus(update.status)
     if (update.model) setModel(update.model)
+    if (update.status === "done" && update.text.trim() && update.partID) {
+      const id = update.partID
+      setHistory((prev) => [
+        { id, at: Date.now(), text: update.text, model: update.model ?? "" },
+        ...prev.filter((entry) => entry.id !== id),
+      ])
+    }
     pin()
   }
 
@@ -98,8 +117,13 @@ export function PanelView(props: { readonly session: MountedSession }) {
     try {
       const snapshot = await rpc().snapshot({ sessionID })
       apply({ text: snapshot.text ?? "", status: snapshot.status ?? "idle", model: snapshot.model ?? "" })
+      const saved = await rpc().history({ sessionID })
+      const entries: HistoryEntry[] = saved.entries ?? []
+      setHistory(entries)
+      if (snapshot.text && entries[0]?.text === snapshot.text) setPartID(entries[0].id)
     } catch {
       apply({ text: "", status: "idle" })
+      setHistory([])
     }
   }
 
@@ -132,6 +156,7 @@ export function PanelView(props: { readonly session: MountedSession }) {
         text: data.text ?? "",
         stable: data.stable,
         preview: data.preview,
+        partID: data.partID,
         status: data.status ?? "live",
         model: data.model,
       })
@@ -151,6 +176,8 @@ export function PanelView(props: { readonly session: MountedSession }) {
         setStable("")
         setPreview("")
         setStatus("idle")
+        setPartID("")
+        setHistory([])
         void load(sessionID)
       },
     ),
@@ -228,6 +255,9 @@ export function PanelView(props: { readonly session: MountedSession }) {
             </optgroup>
           ))}
         </select>
+        <button class="retc-gear" title="历史译文" onClick={() => setShowHistory(!showHistory())}>
+          历史
+        </button>
         <button class="retc-gear" title="样式设置" onClick={() => setShowSettings(!showSettings())}>
           ⚙
         </button>
@@ -256,6 +286,26 @@ export function PanelView(props: { readonly session: MountedSession }) {
           </Show>
         </Show>
       </div>
+      <Show when={showHistory()}>
+        <div class="retc-history">
+          <Show
+            when={history().filter((entry) => entry.id !== partID()).length > 0}
+            fallback={<div class="retc-history-empty">还没有历史译文</div>}
+          >
+            {history()
+              .filter((entry) => entry.id !== partID())
+              .map((entry) => (
+                <details class="retc-entry">
+                  <summary>
+                    {new Date(entry.at).toLocaleTimeString()} · {entry.text.replace(/\s+/g, " ").slice(0, 28)}
+                    {entry.text.length > 28 ? "…" : ""}
+                  </summary>
+                  <div class="retc-entry-body">{entry.text}</div>
+                </details>
+              ))}
+          </Show>
+        </div>
+      </Show>
     </div>
   )
 }
