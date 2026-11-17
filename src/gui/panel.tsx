@@ -255,8 +255,8 @@ export function PanelView(props: { readonly session: MountedSession }) {
             </optgroup>
           ))}
         </select>
-        <button class="retc-gear" title="历史译文" onClick={() => setShowHistory(!showHistory())}>
-          历史
+        <button class="retc-gear" title={showHistory() ? "返回译文" : "历史译文"} onClick={() => setShowHistory(!showHistory())}>
+          {showHistory() ? "返回" : "历史"}
         </button>
         <button class="retc-gear" title="样式设置" onClick={() => setShowSettings(!showSettings())}>
           ⚙
@@ -276,36 +276,40 @@ export function PanelView(props: { readonly session: MountedSession }) {
           <Field label="行高" value={String(skin().line)} onInput={(value) => number("line", value)} />
         </div>
       </Show>
-      <div class="retc-body" classList={{ empty: !full(), error: status() === "error" }} ref={body}>
-        <Show when={full()} fallback={status() === "live" ? "翻译中…" : "等待思考…"}>
-          <Show
-            when={status() === "done"}
-            fallback={<div class="retc-plain">{full()}</div>}
-          >
-            <ui.Markdown text={full()} />
-          </Show>
+      <div class="retc-body" classList={{ empty: !showHistory() && !full(), error: status() === "error" }} ref={body}>
+        <Show
+          when={showHistory()}
+          fallback={
+            <Show when={full()} fallback={status() === "live" ? "翻译中…" : "等待思考…"}>
+              <Show
+                when={status() === "done"}
+                fallback={<div class="retc-plain">{full()}</div>}
+              >
+                <ui.Markdown text={full()} />
+              </Show>
+            </Show>
+          }
+        >
+          <div class="retc-history">
+            <Show
+              when={history().filter((entry) => entry.id !== partID()).length > 0}
+              fallback={<div class="retc-history-empty">还没有历史译文</div>}
+            >
+              {history()
+                .filter((entry) => entry.id !== partID())
+                .map((entry) => (
+                  <details class="retc-entry">
+                    <summary>
+                      {new Date(entry.at).toLocaleTimeString()} · {entry.text.replace(/\s+/g, " ").slice(0, 28)}
+                      {entry.text.length > 28 ? "…" : ""}
+                    </summary>
+                    <div class="retc-entry-body">{entry.text}</div>
+                  </details>
+                ))}
+            </Show>
+          </div>
         </Show>
       </div>
-      <Show when={showHistory()}>
-        <div class="retc-history">
-          <Show
-            when={history().filter((entry) => entry.id !== partID()).length > 0}
-            fallback={<div class="retc-history-empty">还没有历史译文</div>}
-          >
-            {history()
-              .filter((entry) => entry.id !== partID())
-              .map((entry) => (
-                <details class="retc-entry">
-                  <summary>
-                    {new Date(entry.at).toLocaleTimeString()} · {entry.text.replace(/\s+/g, " ").slice(0, 28)}
-                    {entry.text.length > 28 ? "…" : ""}
-                  </summary>
-                  <div class="retc-entry-body">{entry.text}</div>
-                </details>
-              ))}
-          </Show>
-        </div>
-      </Show>
     </div>
   )
 }

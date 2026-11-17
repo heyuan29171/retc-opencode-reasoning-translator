@@ -272,14 +272,9 @@
 }
 
 .retc-history {
-  flex: none;
-  max-height: 38%;
-  overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-top: 6px;
-  border-top: 1px solid var(--retc-border, #666);
+  gap: 6px;
 }
 
 .retc-history-empty {
